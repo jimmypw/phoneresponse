@@ -1,0 +1,35 @@
+#!/usr/bin/expect
+
+# requires:
+# expect
+
+set timeout -1
+
+spawn /usr/bin/socat stdio /dev/ttyUSB0,b115200,echo=1,sane
+sleep 3
+send "\n"
+send "AT\n"
+puts "Waiting for call"
+expect RING
+
+send "ATA\n"
+puts "Playing Message"
+set pid [exec /usr/bin/mplayer /path/to/sample.wav >&/dev/null &]
+
+# Kill mplayer and exit this script if the caller hangs up
+expect_background "NO CARRIER" { 
+	puts "HANGUP DETECTED"
+	exec kill $pid
+	exit
+}
+
+# Otherwise watch mplayer
+while { ! [catch {exec ps -p $pid}] } {
+	sleep 2
+}
+
+# When it terminates, hang up the call
+send "ATH\n"
+
+# Sleep a moment to ensure buffers get completely flushed before socat exits 
+sleep 1
